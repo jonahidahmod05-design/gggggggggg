@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- 📱 PWA & Web App Fullscreen Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+
+    <!-- 🌐 Dynamic Fullscreen Web Manifest -->
+    <link rel="manifest" href='data:application/json,{"name":"Western Gold","short_name":"WesternGold","start_url":".","display":"fullscreen","orientation":"portrait","background_color":"#000000","theme_color":"#000000"}'>
+
+    <title>Western Gold</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Rye&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        html, body {
+            width: 100%;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000000;
+            font-family: 'Cinzel', serif;
+            color: #f3f4f6;
+            touch-action: manipulation;
+        }
+        .western-font {
+            font-family: 'Rye', cursive;
+        }
+
+        /* 📸 ফুল স্ক্রিন স্প্ল্যাশ / লোডিং পেজ */
+        #splash-screen {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+            background: url('https://i.postimg.cc/7P9Pn3jq/Screenshot-20261111-174804.png') no-repeat center center;
+            background-size: cover;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            padding-bottom: 50px;
+        }
+
+        .loading-container {
+            width: 80%;
+            max-width: 320px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid #888;
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.9);
+            text-align: center;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 16px;
+            background-color: #111111;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #444;
+            margin-bottom: 8px;
+        }
+
+        .progress-bar-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #b91c1c 0%, #ef4444 100%);
+            box-shadow: 0 0 10px #ef4444;
+            transition: width 0.1s linear;
+        }
+
+        .start-btn-glow {
+            background: linear-gradient(180deg, #eab308 0%, #ca8a04 100%);
+            box-shadow: 0 0 20px #eab308, inset 0 0 8px #fef08a;
+            animation: pulse-start 1.2s infinite alternate;
+        }
+
+        @keyframes pulse-start {
+            0% { transform: scale(1); box-shadow: 0 0 15px #eab308; }
+            100% { transform: scale(1.08); box-shadow: 0 0 30px #facc15; }
+        }
+
+        @keyframes rainbowGlow {
+            0% { border-color: #ff0000; box-shadow: 0 0 12px rgba(255, 0, 0, 0.7), inset 0 0 6px rgba(255, 0, 0, 0.4); }
+            20% { border-color: #ff8800; box-shadow: 0 0 12px rgba(255, 136, 0, 0.7), inset 0 0 6px rgba(255, 136, 0, 0.4); }
+            40% { border-color: #ffff00; box-shadow: 0 0 12px rgba(255, 255, 0, 0.7), inset 0 0 6px rgba(255, 255, 0, 0.4); }
+            60% { border-color: #00ff00; box-shadow: 0 0 12px rgba(0, 255, 0, 0.7), inset 0 0 6px rgba(0, 255, 0, 0.4); }
+            80% { border-color: #00ffff; box-shadow: 0 0 12px rgba(0, 255, 255, 0.7), inset 0 0 6px rgba(0, 255, 255, 0.4); }
+            100% { border-color: #ff00ff; box-shadow: 0 0 12px rgba(255, 0, 255, 0.7), inset 0 0 6px rgba(255, 0, 255, 0.4); }
+        }
+
+        .rainbow-border-box {
+            border: 2px solid #ff0000;
+            animation: rainbowGlow 4s infinite linear;
+        }
+
+        .wood-panel {
+            background: #000000 !important;
+        }
+
+        .original-curved-board {
+            background: #000000 !important;
+            clip-path: polygon(0% 15%, 3% 0%, 97% 0%, 100% 15%, 100% 85%, 97% 100%, 3% 100%, 0% 85%);
+            width: 96% !important;
+            max-width: 420px;
+        }
+
+        .chain-container {
+            position: relative;
+            width: 78%;
+            height: 40px;
+            display: flex;
+            justify-content: space-between;
+            margin-top: -4px;
+            margin-bottom: -6px;
+            z-index: 25;
+            pointer-events: none;
+        }
+        .chain-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .chain-link {
+            width: 10px;
+            height: 11px;
+            border: 2px solid #a8a29e;
+            background: linear-gradient(180deg, #8a847e 0%, #292524 100%);
+            border-radius: 5px;
+            margin-top: -2px;
+            box-shadow: inset 0 0 3px rgba(0,0,0,0.9), 1px 2px 4px rgba(0,0,0,0.8);
+            position: relative;
+        }
+        .chain-link:nth-child(even) {
+            transform: scaleX(0.75);
+            border-color: #d6d3d1;
+        }
+        .chain-link.lock-ring {
+            width: 9px;
+            height: 9px;
+            margin-top: -1px;
+            border-color: #78716c;
+            background: linear-gradient(180deg, #57534e 0%, #1c1917 100%);
+        }
+
+        .metal-ring {
+            width: 16px;
+            height: 16px;
+            border: 3px solid #ffd700;
+            border-radius: 50%;
+            background: #000000;
+            box-shadow: 0 0 8px rgba(255, 215, 0, 1), inset 0 0 5px rgba(0,0,0,0.9);
+            position: absolute;
+            top: -8px;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .metal-ring::after {
+            content: '';
+            width: 5px;
+            height: 5px;
+            border: 1px solid #d4af37;
+            border-radius: 50%;
+            background: #000000;
+        }
+
+        #slot-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 5px !important;
+            width: 100%;
+        }
+
+        .slot-cell {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            height: 68px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 0px;
+            position: relative;
+        }
+        
+        .slot-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(0 3px 6px rgba(0,0,0,0.95));
+        }
+
+        .mult-item {
+            transition: all 0.3s ease-in-out;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .mult-active-glow {
+            transform: scale(1.4);
+            color: #facc15 !important;
+            text-shadow: 0 0 12px #ffD700, 0 0 25px #ff8c00;
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.6);
+            z-index: 10;
+        }
+
+        @keyframes pulse-gold {
+            0%, 100% { box-shadow: 0 0 10px rgba(212,175,55,0.6); }
+            50% { box-shadow: 0 0 20px rgba(212,175,55,1); }
+        }
+        .spin-glow {
+            animation: pulse-gold 1.5s infinite;
+        }
+
+        @keyframes slowFlySquareBox {
+            0% { top: 35px; left: 50%; transform: translateX(-50%) scale(0.4); opacity: 0; }
+            30% { transform: translateX(-50%) scale(1.1); opacity: 1; filter: drop-shadow(0 0 15px #ffd700); }
+            75% { top: 340px; transform: translateX(-50%) scale(1); opacity: 1; }
+            100% { top: 370px; left: 22%; transform: scale(0.5); opacity: 0; }
+        }
+        .flying-square-multiplier-box {
+            position: absolute;
+            background: linear-gradient(135deg, #1c1917 0%, #000000 100%);
+            border: 2px solid #ffd700;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.9);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-family: 'Rye', cursive;
+            font-size: 16px;
+            color: #f59e0b;
+            text-align: center;
+            pointer-events: none;
+            z-index: 150;
+            animation: slowFlySquareBox 2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+
+        #spin-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(60%);
+            animation: none;
+        }
+
+        .game-footer-box {
+            width: 100% !important;
+            max-width: 430px !important;
+            border-radius: 14px;
+            background-color: #000000 !important;
+            margin-top: 30px;
+            margin-bottom: 45px;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-between relative bg-[#000000] overflow-hidden">
+
+    <!-- 🌟 ১. ফুল স্ক্রিন স্প্ল্যাশ / লোডিং পেজ 🌟 -->
+    <div id="splash-screen">
+        <div class="loading-container">
+            <div id="loading-box">
+                <div class="progress-bar-bg">
+                    <div id="progress-bar-fill" class="progress-bar-fill"></div>
+                </div>
+                <div id="loading-text" class="text-amber-300 font-bold text-xs tracking-wider">Loading resources... 0%</div>
+            </div>
+
+            <!-- ৩ সেকেন্ড পর স্টার্ট বাটন ভাসবে -->
+            <button id="start-btn" onclick="startGameNow()" class="hidden w-full py-3 rounded-xl text-black font-black text-lg western-font start-btn-glow active:scale-95 transition-transform">
+                ▶ START GAME
+            </button>
+        </div>
+    </div>
+
+    <!-- 🎵 MP3 অডিও ট্যাগ (Loop সহ) -->
+    <audio id="bg-audio" loop>
+        <source src="https://files.catbox.moe/5ovn4e.mp3" type="audio/mp3">
+    </audio>
+
+    <div class="absolute inset-0 bg-black/80 pointer-events-none z-0"></div>
+
+    <!-- 🎮 ২. মূল গেম ইন্টারফেস 🎮 -->
+    <div id="game-container" class="relative z-10 flex flex-col items-center justify-between h-full max-w-md mx-auto w-full px-2.5 py-1">
+
+        <!-- ব্যাক / এক্সিট বাটন -->
+        <div class="w-full flex justify-between items-center pt-1 px-1 z-30">
+            <button onclick="goBack()" class="bg-stone-900/90 text-amber-400 border border-amber-500/50 px-3 py-1 rounded-full text-[10px] font-bold shadow-md active:scale-95 flex items-center gap-1">
+                <span>◀ BACK</span>
+            </button>
+            <span class="text-[9px] text-stone-400 font-bold tracking-widest">WESTERN GOLD</span>
+        </div>
+
+        <!-- HEADER: MULTIPLIER PATH -->
+        <header class="flex flex-col items-center w-full flex-shrink-0 pt-1">
+            <div class="w-4 h-2 bg-stone-700 rounded-t-sm -mb-0.5 border border-stone-800 z-10"></div>
+            <div class="flex justify-between w-3/4 px-6 -mb-1">
+                <div class="w-1.5 h-3 bg-gradient-to-b from-stone-800 via-stone-600 to-black rounded shadow"></div>
+                <div class="w-1.5 h-3 bg-gradient-to-b from-stone-800 via-stone-600 to-black rounded shadow"></div>
+            </div>
+
+            <div class="original-curved-board rainbow-border-box py-1.5 px-3 text-center relative shadow-2xl">
+                <div class="text-[7px] text-amber-300 tracking-widest uppercase mb-0.5 font-bold">MULTIPLIER PATH</div>
+                <div id="multiplier-path-container" class="flex justify-center items-center gap-3 text-amber-100 font-bold text-xs">
+                    <span id="m-x10" class="mult-item opacity-50 text-[9px]">x10</span>
+                    <span id="m-x30" class="mult-item opacity-60 text-[10px]">x30</span>
+                    <span id="m-x50" class="mult-item opacity-70 text-[11px]">x50</span>
+                    <span id="m-x1" class="mult-item mult-active-glow text-base western-font">x1</span>
+                    <span id="m-x2" class="mult-item opacity-80 text-[11px]">x2</span>
+                    <span id="m-x4" class="mult-item opacity-90 text-[12px] text-amber-400">x4</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ⛓️ শিকল কন্টেইনার (40px) ⛓️ -->
+        <div class="chain-container">
+            <div class="chain-column" style="margin-left: 32px;">
+                <div class="chain-link"></div>
+                <div class="chain-link"></div>
+                <div class="chain-link lock-ring"></div>
+            </div>
+            <div class="chain-column" style="margin-right: 32px;">
+                <div class="chain-link"></div>
+                <div class="chain-link"></div>
+                <div class="chain-link lock-ring"></div>
+            </div>
+        </div>
+
+        <!-- CENTER: SLOT REELS -->
+        <main class="flex flex-col items-center w-full my-auto" style="margin-top: -3px;">
+            <div class="relative w-full wood-panel rainbow-border-box rounded-2xl p-2.5 flex flex-col items-center shadow-2xl">
+                
+                <div class="metal-ring" style="left: 32px;"></div>
+                <div class="metal-ring" style="right: 32px;"></div>
+
+                <div class="absolute top-1.5 left-3 text-[8px] text-amber-400 font-bold tracking-widest bg-black px-2 py-0.2 rounded border border-stone-800">3600 WAYS</div>
+                <div class="absolute top-1.5 right-3 text-[8px] text-amber-400 font-bold tracking-widest bg-black px-2 py-0.2 rounded border border-stone-800">3600 WAYS</div>
+
+                <div id="slot-grid"></div>
+
+                <button onclick="triggerFeatureBuy()" class="absolute bottom-2 right-2.5 bg-gradient-to-r from-stone-900 via-neutral-900 to-black text-amber-100 px-2.5 py-0.5 rounded-lg text-[9px] font-bold border border-yellow-500 shadow-xl active:scale-95 transition-transform flex items-center gap-1">
+                    <span>⚡ FEATURE BUY</span>
+                </button>
+            </div>
+
+            <!-- WIN BANNER -->
+            <div id="win-banner" class="mt-[30px] w-full wood-panel rainbow-border-box py-1.5 px-3 rounded-xl text-center text-amber-300 font-bold text-xs tracking-wider shadow-xl">
+                WIN: Tk 0.00
+            </div>
+        </main>
+
+        <!-- FOOTER: CONTROLS & BALANCE -->
+        <footer class="flex flex-col gap-1.5 p-2.5 game-footer-box rainbow-border-box flex-shrink-0">
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                <div class="wood-panel rainbow-border-box py-1 rounded-lg flex flex-col items-center justify-center">
+                    <span class="text-[7px] text-stone-400">WIN BOX</span>
+                    <span id="win-box-amt" class="text-amber-400 font-bold text-[10px]">Tk 0.00</span>
+                </div>
+                <div class="wood-panel rainbow-border-box py-1 rounded-lg flex flex-col items-center justify-center">
+                    <span class="text-[7px] text-stone-400">BALANCE (<span id="user-phone-display" class="text-[6px] text-amber-300">USER</span>)</span>
+                    <span id="balance-amount" class="text-emerald-400 font-bold text-[10px]">Tk 100.00</span>
+                </div>
+                <div class="wood-panel rainbow-border-box py-1 rounded-lg flex flex-col items-center justify-center">
+                    <span class="text-[7px] text-stone-400">TOTAL BET</span>
+                    <span id="bet-amount" class="text-amber-200 font-bold text-[10px]">Tk 2.00</span>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between px-1 pt-0.5">
+                <button onclick="showInfoModal()" class="w-8 h-8 rounded-full wood-panel border border-stone-700 flex items-center justify-center text-amber-300 text-xs active:scale-90 transition-transform">⚙️</button>
+                <button onclick="adjustBet(-1)" class="w-9 h-9 rounded-full wood-panel border border-stone-700 flex items-center justify-center text-amber-300 text-sm font-bold active:scale-90 transition-transform shadow-lg">-</button>
+                <button id="spin-btn" onclick="spinReels()" class="w-13 h-13 min-w-[3.2rem] min-h-[3.2rem] rounded-full bg-gradient-to-b from-yellow-600 via-amber-700 to-black border-3 border-yellow-400 flex flex-col items-center justify-center shadow-2xl spin-glow active:scale-95 transition-transform relative">
+                    <div class="absolute inset-0 rounded-full border border-yellow-200/50 pointer-events-none"></div>
+                    <span class="text-base leading-none">🐂</span>
+                    <span class="text-[6px] font-black text-amber-100 tracking-tighter uppercase mt-0.5">SPIN</span>
+                </button>
+                <button onclick="adjustBet(1)" class="w-9 h-9 rounded-full wood-panel border border-stone-700 flex items-center justify-center text-amber-300 text-sm font-bold active:scale-90 transition-transform shadow-lg">+</button>
+                <button onclick="toggleAudio()" id="audio-toggle-btn" class="w-8 h-8 rounded-full wood-panel border border-stone-700 flex items-center justify-center text-yellow-400 text-xs active:scale-90 transition-transform border-yellow-500">🔊</button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Info Rules Modal -->
+    <div id="info-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4">
+        <div class="wood-panel rainbow-border-box max-w-xs w-full p-5 rounded-2xl text-center space-y-3">
+            <h3 class="text-base font-bold text-amber-400 western-font">WESTERN GOLD RULES</h3>
+            <p class="text-[11px] text-stone-300 leading-relaxed">Direct MP3 Audio Loop Active.</p>
+            <button onclick="hideInfoModal()" class="w-full py-2 bg-stone-900 hover:bg-black text-amber-100 font-bold rounded-lg text-xs border border-yellow-400 shadow-md">GOT IT</button>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC0oyxmcovJ2HeCIrH-5ycLyeNV-Eb4AJU",
+            authDomain: "facebook-boost-and-post.firebaseapp.com",
+            projectId: "facebook-boost-and-post",
+            storageBucket: "facebook-boost-and-post.firebasestorage.app",
+            messagingSenderId: "575755901748",
+            appId: "1:575755901748:web:847b8d735579a60d6c6361",
+            measurementId: "G-Q040B1EW8M"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+
+        // 🔗 URL থেকে ইউজার আইডি রিসিভ করার লজিক
+        const urlParams = new URLSearchParams(window.location.search);
+        let currentUserId = urlParams.get('user') || 
+                            urlParams.get('phone') || 
+                            urlParams.get('mobile') || 
+                            urlParams.get('user_number') || 
+                            urlParams.get('number') || 
+                            urlParams.get('username') || 
+                            urlParams.get('userId') || 
+                            urlParams.get('account') || "guest_user";
+
+        let balance = 100.00; // ডিফল্ট ব্যালেন্স, যা ফায়ারবেস থেকে লোড হবে
+        let currentBet = 2.00;
+        const bets = [2.00, 5.00, 10.00, 20.00, 50.00, 100.00];
+        let betIndex = 0;
+
+        let isSpinning = false;
+        let spinCounter = 0;
+
+        // 🔄 ফায়ারবেস থেকে ইউজারের রিয়েল-টাইম ব্যালেন্স লোড করার ফাংশন
+        function loadUserBalanceFromFirebase() {
+            if (currentUserId && currentUserId !== "guest_user") {
+                db.collection("users").doc(currentUserId).get().then((doc) => {
+                    if (doc.exists && doc.data().balance !== undefined) {
+                        balance = parseFloat(doc.data().balance);
+                        updateUI();
+                    } else {
+                        // যদি ডাটা না থাকে তবে লিংক বা ডিফল্ট ব্যালেন্স দিয়ে সেভ করে দিন
+                        let balanceInput = urlParams.get('balance') || 
+                                           urlParams.get('user_balance') || 
+                                           urlParams.get('mobile_balance') || 
+                                           urlParams.get('account_balance') || 
+                                           urlParams.get('amount') || 
+                                           urlParams.get('coin');
+                        if (balanceInput) {
+                            balance = parseFloat(balanceInput);
+                        }
+                        syncBalanceToFirebase();
+                    }
+                }).catch((error) => {
+                    console.log("Error getting user balance:", error);
+                    updateUI();
+                });
+            } else {
+                updateUI();
+            }
+        }
+
+        // ⏱️ ৩ সেকেন্ডের প্রোগ্রেস বার লোডিং লজিক
+        function start3SecondLoading() {
+            let fillEl = document.getElementById('progress-bar-fill');
+            let textEl = document.getElementById('loading-text');
+            let boxEl = document.getElementById('loading-box');
+            let startBtn = document.getElementById('start-btn');
+            
+            let progress = 0;
+            let duration = 3000;
+            let intervalTime = 30;
+            let increment = 100 / (duration / intervalTime);
+
+            let timer = setInterval(() => {
+                progress += increment;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(timer);
+                    boxEl.classList.add('hidden');
+                    startBtn.classList.remove('hidden');
+                }
+                fillEl.style.width = progress + '%';
+                textEl.innerText = `Loading resources... ${Math.floor(progress)}%`;
+            }, intervalTime);
+        }
+
+        // 🚀 স্টার বাটনে ক্লিক করলে ফুলস্ক্রিন রিকোয়েস্ট, স্প্ল্যাশ স্ক্রিন হাইড ও MP3 অডিও প্লে শুরু
+        function startGameNow() {
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(err => console.log(err));
+            } else if (document.documentElement.webkitRequestFullscreen) {
+                document.documentElement.webkitRequestFullscreen();
+            } else if (document.documentElement.msRequestFullscreen) {
+                document.documentElement.msRequestFullscreen();
+            }
+
+            document.getElementById('splash-screen').style.display = 'none';
+            
+            const audioEl = document.getElementById('bg-audio');
+            if (audioEl) {
+                audioEl.volume = 1.0;
+                audioEl.play().catch(error => {
+                    console.log("Audio autoplay restricted, waiting for interaction:", error);
+                });
+            }
+        }
+
+        // 🔊 সাউন্ড অন/অফ টগল করার ফাংশন
+        function toggleAudio() {
+            const audioEl = document.getElementById('bg-audio');
+            const btn = document.getElementById('audio-toggle-btn');
+            if (audioEl) {
+                if (audioEl.paused) {
+                    audioEl.play();
+                    btn.innerText = "🔊";
+                    btn.classList.add('text-yellow-400', 'border-yellow-500');
+                } else {
+                    audioEl.pause();
+                    btn.innerText = "🔇";
+                    btn.classList.remove('text-yellow-400', 'border-yellow-500');
+                }
+            }
+        }
+
+        // 💾 ফায়ারবেজে ইউজারের মেইন ব্যালেন্স রিয়েল-টাইম আপডেট করার ফাংশন
+        function syncBalanceToFirebase() {
+            if (currentUserId && currentUserId !== "guest_user") {
+                db.collection("users").doc(currentUserId).set({
+                    balance: balance,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true }).catch(err => console.log("Firebase Sync Error:", err));
+            }
+        }
+
+        const symbols = [
+            { name: 'Logo', img: 'https://i.postimg.cc/vH8C886K/file-00000000fc7c8211b6593b1a25392e8a.png' }, 
+            { name: 'Head', img: 'https://i.postimg.cc/gjVtzQYn/file-00000000949082118f55e0d6ffbcd837.png' }, 
+            { name: 'Whiskey', img: 'https://i.postimg.cc/prFTYxd9/file-00000000887c82119956d5eb3d1dece1.png' }, 
+            { name: 'Scatter', img: 'https://i.postimg.cc/xCvTQjb9/file-0000000031b88211b678c4cfecee223e.png' }, 
+            { name: 'Q', img: 'https://i.postimg.cc/63DF5CCJ/file-00000000a6b0821192ee7090f7c2a4aa.png' },      
+            { name: 'A', img: 'https://i.postimg.cc/Qxgvh9tT/file-00000000423c8211824abbf001ac520b.png' },      
+            { name: 'K', img: 'https://i.postimg.cc/qvjY6P2K/file-0000000012208211895147c96699c58c.png' },      
+            { name: 'Pistol', img: 'https://i.postimg.cc/yYTp2Mpz/file-0000000046b08211bdbca47d1fae65d0.png' },
+            { name: 'BonusBox', img: 'https://i.postimg.cc/B6xRbXgk/file-0000000085c48211ad892cc675582a9b.png' },
+            { name: 'BonusBox2', img: 'https://i.postimg.cc/PqcdYp1C/file-000000004b748211b14a080a043ac3e6.png' },
+            { name: 'NewSymbol', img: 'https://i.postimg.cc/y6t3JpN8/file-00000000fe1c82119ec410cd72ce97f0.png' }
+        ];
+
+        const gridRows = 4;
+        const gridCols = 4;
+
+        function setSpinButtonState(disabled) {
+            const spinBtn = document.getElementById('spin-btn');
+            spinBtn.disabled = disabled;
+            if (disabled) {
+                spinBtn.classList.add('pointer-events-none');
+            } else {
+                spinBtn.classList.remove('pointer-events-none');
+            }
+        }
+
+        function initGrid() {
+            const gridEl = document.getElementById('slot-grid');
+            gridEl.innerHTML = '';
+            
+            let assignedSymbols = [];
+            for (let r = 0; r < gridRows; r++) {
+                for (let c = 0; c < gridCols; c++) {
+                    let randomSym;
+                    do {
+                        randomSym = symbols[Math.floor(Math.random() * symbols.length)];
+                    } while (assignedSymbols.filter(s => s.name === randomSym.name).length >= 2);
+
+                    assignedSymbols.push(randomSym);
+                    const cell = document.createElement('div');
+                    cell.className = `slot-cell`;
+                    cell.id = `cell-${r}-${c}`;
+                    cell.innerHTML = `<img src="${randomSym.img}" class="slot-img" alt="${randomSym.name}">`;
+                    gridEl.appendChild(cell);
+                }
+            }
+        }
+
+        function adjustBet(direction) {
+            if (isSpinning) return;
+            betIndex += direction;
+            if (betIndex < 0) betIndex = 0;
+            if (betIndex >= bets.length) betIndex = bets.length - 1;
+            currentBet = bets[betIndex];
+            document.getElementById('bet-amount').innerText = `Tk ${currentBet.toFixed(2)}`;
+        }
+
+        async function spinReels() {
+            if (isSpinning) return;
+            if (balance < currentBet) {
+                document.getElementById('win-banner').innerText = `NOT ENOUGH BALANCE!`;
+                return;
+            }
+
+            isSpinning = true;
+            spinCounter++;
+            setSpinButtonState(true);
+
+            document.getElementById('win-banner').innerText = `WIN: Tk 0.00`;
+            document.getElementById('win-box-amt').innerText = `Tk 0.00`;
+
+            balance -= currentBet;
+            updateUI();
+            syncBalanceToFirebase(); // ব্যালেন্স কাটার পর ফায়ারবেসে আপডেট
+            
+            document.getElementById('spin-btn').classList.add('animate-spin');
+
+            let interval = setInterval(() => {
+                randomizeVisuals("none");
+            }, 100);
+
+            setTimeout(() => {
+                clearInterval(interval);
+                document.getElementById('spin-btn').classList.remove('animate-spin');
+                determineGameOutcome();
+            }, 800);
+        }
+
+        function determineGameOutcome() {
+            let winAmount = 0;
+            let outcomeType = "loss";
+            let multiplierVal = 4;
+
+            let isWinSpin = (spinCounter % 5 === 0 || spinCounter % 10 === 3);
+
+            if (isWinSpin) {
+                let fiftyPercentBase = currentBet * 0.50;
+                winAmount = fiftyPercentBase * multiplierVal;
+                
+                outcomeType = "win_50pct_4x";
+                randomizeVisuals("RandomWin");
+            } else {
+                multiplierVal = 1;
+                winAmount = 0;
+                outcomeType = "loss";
+                randomizeVisuals("loss");
+            }
+
+            animateSquareBoxMultiplier(multiplierVal, winAmount, () => {
+                processPayout(winAmount, outcomeType);
+            });
+        }
+
+        function animateSquareBoxMultiplier(mult, winAmt, callback) {
+            const container = document.getElementById('game-container');
+            
+            const elements = {
+                1: document.getElementById('m-x1'),
+                2: document.getElementById('m-x2'),
+                4: document.getElementById('m-x4'),
+                10: document.getElementById('m-x10'),
+                30: document.getElementById('m-x30'),
+                50: document.getElementById('m-x50')
+            };
+            Object.values(elements).forEach(el => { if(el) el.classList.remove('mult-active-glow'); });
+            let targetEl = elements[mult] || elements[4];
+            if(targetEl) targetEl.classList.add('mult-active-glow');
+
+            if (winAmt > 0) {
+                const squareBox = document.createElement('div');
+                squareBox.className = 'flying-square-multiplier-box';
+                squareBox.innerHTML = `<div>⭐ 4X WIN ⭐</div><div style="font-size:13px; color:#34d399; margin-top:2px;">+Tk ${winAmt.toFixed(2)}</div>`;
+                container.appendChild(squareBox);
+
+                setTimeout(() => {
+                    squareBox.remove();
+                    if(callback) callback();
+                }, 2000);
+            } else {
+                if(callback) callback();
+            }
+        }
+
+        function randomizeVisuals(mode) {
+            let targetSymbolName = null;
+            if (mode === "RandomWin") {
+                let nonScatterSymbols = symbols.filter(s => s.name !== 'Scatter');
+                targetSymbolName = nonScatterSymbols[Math.floor(Math.random() * nonScatterSymbols.length)].name;
+            }
+
+            for (let r = 0; r < gridRows; r++) {
+                for (let c = 0; c < gridCols; c++) {
+                    let sym;
+                    if (mode === "RandomWin" && r === 1 && (c === 0 || c === 1 || c === 2)) {
+                        sym = symbols.find(s => s.name === targetSymbolName) || symbols[0];
+                    } else if (mode === "loss") {
+                        do {
+                            sym = symbols[Math.floor(Math.random() * symbols.length)];
+                        } while (sym.name === 'Scatter');
+                    } else {
+                        sym = symbols[Math.floor(Math.random() * symbols.length)];
+                    }
+
+                    const cell = document.getElementById(`cell-${r}-${c}`);
+                    if (cell) {
+                        cell.innerHTML = `<img src="${sym.img}" class="slot-img" alt="${sym.name}">`;
+                    }
+                }
+            }
+        }
+
+        function processPayout(winAmount, type) {
+            if (winAmount > 0) {
+                document.getElementById('win-banner').innerText = `WIN: Tk ${winAmount.toFixed(2)}`;
+                document.getElementById('win-box-amt').innerText = `Tk ${winAmount.toFixed(2)}`;
+
+                balance += winAmount;
+                updateUI();
+                syncBalanceToFirebase(); // জেতার পর ব্যালেন্স যোগ হয়ে ফায়ারবেসে আপডেট
+                
+                setTimeout(() => {
+                    document.getElementById('win-banner').innerText = `WIN: Tk 0.00`;
+                    document.getElementById('win-box-amt').innerText = `Tk 0.00`;
+                    isSpinning = false;
+                    setSpinButtonState(false);
+                }, 400);
+            } else {
+                document.getElementById('win-banner').innerText = `WIN: Tk 0.00`;
+                document.getElementById('win-box-amt').innerText = `Tk 0.00`;
+                isSpinning = false;
+                setSpinButtonState(false);
+            }
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('balance-amount').innerText = `Tk ${balance.toFixed(2)}`;
+            document.getElementById('user-phone-display').innerText = currentUserId;
+        }
+
+        function triggerFeatureBuy() {
+            if (isSpinning) return;
+            const cost = currentBet * 50;
+            if (balance < cost) {
+                document.getElementById('win-banner').innerText = `NEED MORE COINS!`;
+                return;
+            }
+            balance -= cost;
+            updateUI();
+            syncBalanceToFirebase(); // ফিচার বাই করার পর ফায়ারবেসে আপডেট
+            document.getElementById('win-banner').innerText = `🔥 FEATURE BUY TRIGGERED!`;
+            spinReels();
+        }
+
+        function showInfoModal() {
+            document.getElementById('info-modal').classList.remove('hidden');
+        }
+
+        function hideInfoModal() {
+            document.getElementById('info-modal').classList.add('hidden');
+        }
+
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                alert("গেমে থাকার জন্য ধন্যবাদ!");
+            }
+        }
+
+        window.onload = function() {
+            initGrid();
+            loadUserBalanceFromFirebase(); // ফায়ারবেস থেকে লাইভ ব্যালেন্স নিয়ে আসবে
+            start3SecondLoading();
+        };
+    </script>
+</body>
+</html>
